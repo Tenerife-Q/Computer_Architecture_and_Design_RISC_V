@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDS 硬件时序计算器</title>
+    <!-- 引入 Tailwind CSS 进行现代且干净的 UI 布局 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 React 和 Babel 以实现组件化和数据双向绑定 -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+</head>
+<body class="bg-gray-100 p-6 font-sans flex justify-center">
+
+    <div id="root" class="w-full max-w-5xl"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        function SDSCalculator() {
+            // 1. 初始化输入参数的状态 (单位: ps)
+            const [tClkToQ, setTClkToQ] = useState(50);
+            const [tSetup, setTSetup] = useState(40);
+            const [tHold, setTHold] = useState(20);
+            const[tCLMax, setTCLMax] = useState(300);
+            const[tCLMin, setTCLMin] = useState(30);
+
+            // 2. 核心逻辑计算
+            const tMin = tClkToQ + tCLMax + tSetup;
+            const fMax = (1000 / tMin).toFixed(2); // 转换为 GHz
+            const holdPass = (tClkToQ + tCLMin) >= tHold;
+
+            // 辅助组件：带滑动条的输入框
+            const InputSlider = ({ label, value, setter, min, max }) => (
+                <div class="mb-4">
+                    <div class="flex justify-between mb-1">
+                        <label class="text-sm font-medium text-gray-700">{label}</label>
+                        <span class="text-sm font-bold text-blue-600">{value} ps</span>
+                    </div>
+                    <input 
+                        type="range" min={min} max={max} value={value} 
+                        onChange={(e) => setter(Number(e.target.value))}
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                </div>
+            );
+
+            return (
+                <div class="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row">
+                    
+                    {/* 左侧：参数输入区域 */}
+                    <div class="md:w-1/2 p-8 bg-gray-50 border-r border-gray-200">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                            <span class="mr-2">🎛️</span> 硬件参数调节区
+                        </h2>
+                        
+                        <div class="space-y-2">
+                            <InputSlider label="t_clk-to-q (时钟到输出延迟)" value={tClkToQ} setter={setTClkToQ} min={0} max={200} />
+                            <InputSlider label="t_setup (建立时间)" value={tSetup} setter={setTSetup} min={0} max={200} />
+                            <InputSlider label="t_hold (保持时间)" value={tHold} setter={setTHold} min={0} max={200} />
+                            
+                            <div class="h-px bg-gray-300 my-4"></div>
+                            
+                            <InputSlider label="t_CL(max) (最大组合逻辑延迟 / 关键路径)" value={tCLMax} setter={setTCLMax} min={0} max={1000} />
+                            <InputSlider label="t_CL(min) (最小组合逻辑延迟 / 最短路径)" value={tCLMin} setter={setTCLMin} min={0} max={500} />
+                        </div>
+                    </div>
+
+                    {/* 右侧：结果展示区域 */}
+                    <div class="md:w-1/2 p-8">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                            <span class="mr-2">📊</span> 实时时序分析结果
+                        </h2>
+
+                        {/* Setup Time 约束与时钟频率计算 */}
+                        <div class="mb-8 p-5 bg-blue-50 rounded-xl border border-blue-100">
+                            <h3 class="text-lg font-bold text-blue-800 mb-3">1. 最大时钟频率约束 (Setup Time)</h3>
+                            <p class="text-sm text-gray-600 mb-2">公式: <code class="bg-gray-200 px-1 rounded">T_min ≥ t_clk-to-q + t_CL(max) + t_setup</code></p>
+                            
+                            <div class="bg-white p-3 rounded border border-gray-200 font-mono text-sm mb-4">
+                                T_min = {tClkToQ} + {tCLMax} + {tSetup} = <span class="font-bold text-blue-600 text-lg">{tMin} ps</span>
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-700 font-medium">理论最大时钟频率 (F_max) :</span>
+                                <span class="text-3xl font-black text-indigo-600">{fMax} <span class="text-lg font-bold">GHz</span></span>
+                            </div>
+                            <p class="text-xs text-gray-500 text-right mt-1">计算方法: 1000 / {tMin}</p>
+                        </div>
+
+                        {/* Hold Time 校验 */}
+                        <div class={`p-5 rounded-xl border ${holdPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-300'}`}>
+                            <h3 class={`text-lg font-bold mb-3 ${holdPass ? 'text-green-800' : 'text-red-800'}`}>
+                                2. 最小延迟约束校验 (Hold Time)
+                            </h3>
+                            <p class="text-sm text-gray-600 mb-2">公式: <code class="bg-gray-200 px-1 rounded">t_clk-to-q + t_CL(min) ≥ t_hold</code></p>
+                            
+                            <div class="bg-white p-3 rounded border border-gray-200 font-mono text-sm mb-4 flex items-center">
+                                <span>{tClkToQ} + {tCLMin} = <span class="font-bold">{tClkToQ + tCLMin} ps</span></span>
+                                <span class="mx-3">{holdPass ? '≥' : '<'}</span>
+                                <span>{tHold} ps</span>
+                            </div>
+
+                            <div class="flex items-center">
+                                {holdPass ? (
+                                    <div class="flex items-center text-green-700 font-bold text-lg">
+                                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        系统稳定 (Hold Time 满足)
+                                    </div>
+                                ) : (
+                                    <div class="flex items-center text-red-600 font-bold text-lg animate-pulse">
+                                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                        系统不稳定 (发生 Hold Time 违规，需插入 Buffer!)
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        }
+
+        // 渲染 React 组件
+        ReactDOM.render(<SDSCalculator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
