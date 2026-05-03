@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>CS61C Cache T.I.O 可视化计算器</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; width: 100%; }
+        h2 { text-align: center; color: #003262; } /* UC Berkeley Blue */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        .error { color: #d9534f; font-weight: bold; margin-top: 10px; display: none; }
+        
+        /* 可视化 Bar 样式 */
+        .visualization { margin-top: 30px; }
+        .bar-container { display: flex; height: 50px; border-radius: 8px; overflow: hidden; border: 2px solid #333; }
+        .segment { display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; transition: all 0.3s ease; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+        .tag-sec { background-color: #f0ad4e; }
+        .index-sec { background-color: #5bc0de; }
+        .offset-sec { background-color: #5cb85c; }
+        
+        .math-steps { background: #f9f9f9; padding: 15px; border-left: 4px solid #003262; margin-top: 20px; font-family: monospace; font-size: 14px; line-height: 1.6;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>T.I.O 计算器 (Direct Mapped)</h2>
+    
+    <div class="form-group">
+        <label>Address Size (地址总位数, e.g., 32)</label>
+        <input type="number" id="addrSize" value="32">
+    </div>
+    <div class="form-group">
+        <label>Total Cache Size (缓存总容量 - Bytes)</label>
+        <input type="number" id="cacheSize" value="8">
+    </div>
+    <div class="form-group">
+        <label>Block Size (块大小 - Bytes)</label>
+        <input type="number" id="blockSize" value="2">
+    </div>
+
+    <div id="errorMsg" class="error"></div>
+
+    <div class="visualization">
+        <div class="bar-container" id="barBox">
+            <div class="segment tag-sec" id="tagBar">Tag</div>
+            <div class="segment index-sec" id="indexBar">Index</div>
+            <div class="segment offset-sec" id="offsetBar">Offset</div>
+        </div>
+    </div>
+
+    <div class="math-steps" id="mathSteps">
+        <!-- 动态注入计算步骤 -->
+    </div>
+</div>
+
+<script>
+    function isPowerOf2(value) {
+        return value > 0 && (value & (value - 1)) === 0;
+    }
+
+    function calculate() {
+        const addrSize = parseInt(document.getElementById('addrSize').value);
+        const cacheSize = parseInt(document.getElementById('cacheSize').value);
+        const blockSize = parseInt(document.getElementById('blockSize').value);
+        const errorDiv = document.getElementById('errorMsg');
+        
+        errorDiv.style.display = 'none';
+
+        if (!addrSize || !cacheSize || !blockSize) return;
+
+        if (!isPowerOf2(cacheSize) || !isPowerOf2(blockSize)) {
+            errorDiv.innerText = "注意: 缓存大小和块大小通常必须是 2 的幂次方！";
+            errorDiv.style.display = 'block';
+        }
+
+        if (blockSize > cacheSize) {
+            errorDiv.innerText = "错误: Block Size 不能大于 Cache Size!";
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // 核心计算逻辑
+        const offsetBits = Math.log2(blockSize);
+        const numBlocks = cacheSize / blockSize;
+        const indexBits = Math.log2(numBlocks);
+        const tagBits = addrSize - indexBits - offsetBits;
+
+        if (tagBits < 0) {
+            errorDiv.innerText = "错误: 设定的参数导致 Tag 位数为负数，不符合逻辑！";
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // 更新 UI 视图
+        document.getElementById('tagBar').style.flex = tagBits;
+        document.getElementById('tagBar').innerText = `Tag (${tagBits} bits)`;
+        
+        document.getElementById('indexBar').style.flex = indexBits;
+        document.getElementById('indexBar').innerText = indexBits > 0 ? `Idx (${indexBits})` : '';
+        
+        document.getElementById('offsetBar').style.flex = offsetBits;
+        document.getElementById('offsetBar').innerText = offsetBits > 0 ? `Off (${offsetBits})` : '';
+
+        // 更新计算过程展示
+        document.getElementById('mathSteps').innerHTML = `
+            <strong>计算步骤:</strong><br/>
+            1. <strong>Offset:</strong> log₂(${blockSize}) = <span style="color:#5cb85c">${offsetBits} bits</span><br/>
+            2. <strong>Blocks 数量:</strong> ${cacheSize} / ${blockSize} = ${numBlocks} blocks<br/>
+            3. <strong>Index:</strong> log₂(${numBlocks}) = <span style="color:#5bc0de">${indexBits} bits</span><br/>
+            4. <strong>Tag:</strong> ${addrSize} - ${indexBits} - ${offsetBits} = <span style="color:#f0ad4e">${tagBits} bits</span>
+        `;
+    }
+
+    // 监听输入变化，实时计算
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', calculate);
+    });
+
+    // 初始化运行一次
+    calculate();
+</script>
+
+</body>
+</html>
