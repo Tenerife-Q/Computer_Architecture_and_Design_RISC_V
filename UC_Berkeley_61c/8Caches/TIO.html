@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>CS61C Cache T.I.O 计算器</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 2rem; max-width: 800px; margin: 0 auto; background: #f4f4f9; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .input-group { margin-bottom: 15px; }
+        label { display: inline-block; width: 180px; font-weight: bold; }
+        input { padding: 6px; width: 120px; font-size: 16px; text-align: center; }
+        .bar-container { display: flex; margin: 30px 0; height: 50px; border-radius: 4px; overflow: hidden; color: white; font-weight: bold; font-family: monospace; text-align: center; line-height: 50px; }
+        .tag-bar { background: #e74c3c; transition: width 0.3s; }
+        .index-bar { background: #2ecc71; transition: width 0.3s; }
+        .offset-bar { background: #3498db; transition: width 0.3s; }
+        .results { background: #f8f9fa; padding: 15px; border-left: 4px solid #2c3e50; font-family: monospace; font-size: 15px; }
+        .error { color: #e74c3c; font-weight: bold; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Direct Mapped Cache T.I.O 分解器</h2>
+        <div class="input-group">
+            <label>Address Size (Bits):</label>
+            <input type="number" id="addrBits" value="32" oninput="calculate()">
+        </div>
+        <div class="input-group">
+            <label>Cache Size (Bytes):</label>
+            <input type="number" id="cacheSize" value="8" oninput="calculate()">
+        </div>
+        <div class="input-group">
+            <label>Block Size (Bytes):</label>
+            <input type="number" id="blockSize" value="2" oninput="calculate()">
+        </div>
+
+        <div id="errorMsg" class="error"></div>
+
+        <div class="bar-container" id="visualBar">
+            <div class="tag-bar" id="tagWidth">Tag</div>
+            <div class="index-bar" id="indexWidth">Index</div>
+            <div class="offset-bar" id="offsetWidth">Offset</div>
+        </div>
+
+        <div class="results" id="output"></div>
+    </div>
+
+    <script>
+        function calculate() {
+            const addrBits = parseInt(document.getElementById('addrBits').value);
+            const cacheSize = parseInt(document.getElementById('cacheSize').value);
+            const blockSize = parseInt(document.getElementById('blockSize').value);
+            const errorMsg = document.getElementById('errorMsg');
+            const output = document.getElementById('output');
+
+            errorMsg.textContent = '';
+            
+            if (blockSize > cacheSize) {
+                errorMsg.textContent = "错误: Block Size 不能大于 Cache Size!";
+                return;
+            }
+
+            const offsetBits = Math.log2(blockSize);
+            const numBlocks = cacheSize / blockSize;
+            const indexBits = Math.log2(numBlocks);
+            const tagBits = addrBits - indexBits - offsetBits;
+
+            if (!Number.isInteger(offsetBits) || !Number.isInteger(indexBits)) {
+                errorMsg.textContent = "警告: Cache Size 和 Block Size 应当是 2 的幂次方。";
+            }
+
+            if (tagBits < 0) {
+                errorMsg.textContent = "错误: 地址位数不足以容纳 Index 和 Offset！";
+                return;
+            }
+
+            document.getElementById('offsetWidth').style.width = (offsetBits / addrBits * 100) + '%';
+            document.getElementById('offsetWidth').textContent = `O:${offsetBits}`;
+            
+            document.getElementById('indexWidth').style.width = (indexBits / addrBits * 100) + '%';
+            document.getElementById('indexWidth').textContent = `I:${indexBits}`;
+            
+            document.getElementById('tagWidth').style.width = (tagBits / addrBits * 100) + '%';
+            document.getElementById('tagWidth').textContent = `T:${tagBits}`;
+
+            output.innerHTML = `
+                Number of Blocks = ${cacheSize} / ${blockSize} = ${numBlocks} blocks<br>
+                Offset Bits = log2(${blockSize}) = ${offsetBits} bits<br>
+                Index Bits = log2(${numBlocks}) = ${indexBits} bits<br>
+                Tag Bits = ${addrBits} - ${indexBits} - ${offsetBits} = ${tagBits} bits
+            `;
+        }
+        calculate();
+    </script>
+</body>
+</html>
